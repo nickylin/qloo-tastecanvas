@@ -1,121 +1,259 @@
-// TasteCanvas frontend — no build step, plain JS.
+// TasteCanvas frontend — no build step, plain JS. English UI for US judges.
+// Backend may return Chinese display strings; we map known ids to English.
+
 const $ = (id) => document.getElementById(id);
+
+const EN_PERSONAS = {
+  "jazz-lover": { name: "Jazz Lover", tagline: "Vinyl, late-night radio, craft espresso" },
+  "streetwear-fan": { name: "Streetwear Fan", tagline: "Sneakers, skateboarding, city nightlife" },
+  minimalist: { name: "Minimalist", tagline: "Negative space, functionalism, Japandi calm" },
+};
+
+const EN_PRODUCTS = {
+  "cloudrunner-sneaker": { name: "CloudRunner Sneaker", blurb: "Featherlight everyday runner" },
+};
+
+const enPersona = (p) => ({
+  ...p,
+  name: (EN_PERSONAS[p.id] || {}).name || p.name,
+  tagline: (EN_PERSONAS[p.id] || {}).tagline || p.tagline,
+});
+
+const enProduct = (p) => ({
+  ...p,
+  name: (EN_PRODUCTS[p.id] || {}).name || p.name,
+  blurb: (EN_PRODUCTS[p.id] || {}).blurb || p.blurb,
+});
+
+let PERSONAS = [];
+let generating = false;
 
 async function api(path, opts) {
   const res = await fetch(path, opts);
-  if (!res.ok) throw new Error(`API ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`API ${res.status} ${body.slice(0, 120)}`);
+  }
   return res.json();
 }
 
-function setLoading(on, text) {
-  $("loadingPanel").classList.toggle("hidden", !on);
-  if (text) $("loadingText").textContent = text;
-  document.querySelectorAll(".btn").forEach((b) => (b.disabled = on));
+function setBusy(on) {
+  generating = on;
+  $("btnAll").disabled = on;
+  document.querySelectorAll(".persona-card").forEach((c) => c.classList.toggle("busy", on));
 }
 
-function renderAdCard(item) {
-  const brands = (item.topBrands || [])
-    .map(
-      (b) => `
-      <div>${b.name} <span style="float:right">${(b.affinity * 100).toFixed(0)}%</span></div>
-      <div class="bar"><i style="width:${(b.affinity * 100).toFixed(0)}%"></i></div>`
-    )
-    .join("");
-  const el = document.createElement("div");
+/* ---------------- persona strip ---------------- */
+
+function renderPersonaStrip(personas) {
+  const wrap = $("personaStrip");
+  wrap.innerHTML = "";
+  personas.forEach((raw) => {
+    const p = enPersona(raw);
+    const c = document.createElement("div");
+    c.className = "persona-card";
+    c.style.setProperty("--accent", p.accentColor);
+    c.setAttribute("role", "button");
+    c.setAttribute("tabindex", "0");
+    c.title = `Regenerate ad for ${p.name}`;
+    c.innerHTML = `
+      <div class="row">
+        <div class="emoji">${p.emoji}</div>
+        <div><h3>${esc(p.name)}</h3></div>
+      </div>
+      <p class="tag">${esc(p.tagline)}</p>
+      <div class="regen">↻ Click to regenerate this persona's ad</div>`;
+    c.onclick = () => generateOne(p.id);
+    c.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); generateOne(p.id); } };
+    wrap.appendChild(c);
+  });
+}
+
+/* ---------------- ad cards ---------------- */
+
+function esc(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function brandRows(brands, delayBase) {
+  return (brands || []).slice(0, 3).map((b, i) => {
+    const pct = Math.round((b.affinity || 0) * 100);
+    return `
+      <div class="brand-row">
+        <div class="meta"><span>${esc(b.name)}</span><span class="score">${pct}%</span></div>
+        <div class="bar"><i data-w="${pct}" style="transition-delay:${delayBase + i * 120}ms"></i></div>
+      </div>`;
+  }).join("");
+}
+
+function adCard(item, index) {
+  const p = enPersona({ id: item.persona.id, name: item.persona.name, emoji: personaEmoji(item.persona.id), accentColor: item.ad.accentColor });
+  const el = document.createElement("article");
   el.className = "ad-card";
+  el.dataset.persona = item.persona.id;
+  el.style.setProperty("--accent", item.ad.accentColor || "#7c6cf0");
+  el.style.animationDelay = `${index * 110}ms`;
   el.innerHTML = `
-    <img src="${item.ad.imageSrc}" alt="ad creative" />
+    <div class="ad-persona">
+      <div class="emoji">${p.emoji}</div>
+      <div class="who"><b>${esc(p.name)}</b><span>${esc((item.interests || []).slice(0, 3).join(" · "))}</span></div>
+      <span class="ai-tag">AI personalized</span>
+    </div>
+    <div class="ad-img-wrap">
+      <img src="${item.ad.imageSrc}" alt="Generated ad for ${esc(p.name)}" loading="lazy" />
+      ${item.ad.imageMocked ? `<span class="mock-ribbon">MOCK VISUAL</span>` : ""}
+    </div>
     <div class="ad-body">
-      <div class="persona">${item.persona.name} · ${item.interests.join(" / ")}</div>
-      <h3>${item.ad.headline}</h3>
-      <span class="angle" style="border:1px solid ${item.ad.accentColor}">创意角度：${item.ad.angle}</span>
-      <p class="copy sub">${item.ad.subline}</p>
-      <div class="brands"><strong>Qloo 品牌亲和度</strong>${brands}</div>
+      <h3>${esc(item.ad.headline)}</h3>
+      <p class="subline">${esc(item.ad.subline)}</p>
+      <span class="angle-pill">✦ ${esc(item.ad.angle)}</span>
+      <div class="brands">
+        <div class="brands-title">Qloo brand affinity</div>
+        ${brandRows(item.topBrands, 350 + index * 110)}
+      </div>
+      ${item.ad.rationale ? `<details><summary>Why this angle?</summary><p>${esc(item.ad.rationale)}</p></details>` : ""}
+      <div class="ad-foot">
+        <button class="btn ghost regen-btn" style="--accent:${item.ad.accentColor}">↻ Regenerate</button>
+      </div>
     </div>`;
+  el.querySelector(".regen-btn").onclick = () => generateOne(item.persona.id);
+  // animate brand bars after paint
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    el.querySelectorAll(".bar i").forEach((bar) => { bar.style.width = bar.dataset.w + "%"; });
+  }));
   return el;
 }
 
-function showGallery(items, productName, traceHtml) {
-  $("productName").textContent = productName;
+function personaEmoji(id) {
+  const found = PERSONAS.find((p) => p.id === id);
+  return found ? found.emoji : "✨";
+}
+
+function renderGallery(results) {
   const g = $("gallery");
   g.innerHTML = "";
-  items.forEach((it) => g.appendChild(renderAdCard(it)));
-  $("galleryPanel").classList.remove("hidden");
-  if (traceHtml) $("traceBox").innerHTML = traceHtml;
-  $("galleryPanel").scrollIntoView({ behavior: "smooth" });
-}
-
-function traceHtml(trace) {
-  if (!trace) return "";
-  return trace.steps
-    .map((s) => `<div class="step"><strong>${s.name}</strong> <span class="dim">(attempt ${s.attempt})</span><br/>${s.detail}</div>`)
-    .join("") + `<div class="step">retries=${trace.retries} · passed=${trace.passed}</div>`;
-}
-
-async function init() {
-  // service status
-  try {
-    const h = await api("/api/health");
-    const live = h.qlooMode === "live";
-    $("modeBadge").textContent = live ? "● Qloo LIVE" : "● Qloo MOCK（等 Key 接入）";
-    $("modeBadge").classList.toggle("live", live);
-    $("footMode").textContent = `qloo=${h.qlooMode} image=${h.imageMode}`;
-  } catch {
-    $("modeBadge").textContent = "● 后端未连接";
+  results.forEach((it, i) => g.appendChild(adCard(it, i)));
+  const product = results[0]?.ad?.product;
+  if (product) {
+    $("galleryHint").innerHTML = `The same <strong>${esc(productNameEn(product))}</strong>, seen through three different tastes.`;
   }
+}
 
-  // personas
+function productNameEn(name) {
+  for (const [id, en] of Object.entries(EN_PRODUCTS)) {
+    if (name && name.includes(id.split("-")[0])) return en.name;
+  }
+  return name;
+}
+
+function skeletonCards(n) {
+  const g = $("gallery");
+  g.innerHTML = "";
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement("div");
+    s.className = "skeleton";
+    s.style.animationDelay = `${i * 90}ms`;
+    s.innerHTML = `
+      <div class="sk-img shimmer"></div>
+      <div class="sk-line shimmer"></div>
+      <div class="sk-line short shimmer"></div>
+      <div class="sk-line shimmer"></div>`;
+    g.appendChild(s);
+  }
+}
+
+/* ---------------- trace ---------------- */
+
+function renderTrace(trace, single) {
+  const box = $("traceBox");
+  if (!trace || !trace.steps) {
+    box.innerHTML = single
+      ? `<span class="dim">Single-generation mode: the agent ran perceive → reason → generate → self-check.</span>`
+      : `<span class="dim">Batch mode: each ad ran its own perceive → reason → generate → self-check pipeline.</span>`;
+    return;
+  }
+  box.innerHTML = trace.steps.map((s) => `
+    <div class="step"><b>${esc(s.name)}</b> <span class="dim">(attempt ${esc(s.attempt ?? 1)})</span><br/>${esc(s.detail)}</div>
+  `).join("") + `
+    <div class="step"><span class="${trace.passed ? "ok" : "warn"}">self-check ${trace.passed ? "passed" : "needed fixes"}</span>
+    <span class="dim"> · retries=${trace.retries ?? 0}</span></div>`;
+}
+
+/* ---------------- actions ---------------- */
+
+async function generateAll() {
+  if (generating) return;
+  setBusy(true);
+  skeletonCards(3);
   try {
-    const { personas } = await api("/api/personas");
-    const wrap = $("personaCards");
-    personas.forEach((p) => {
-      const c = document.createElement("div");
-      c.className = "persona-card";
-      c.style.borderTop = `3px solid ${p.accentColor}`;
-      c.innerHTML = `<div class="emoji">${p.emoji}</div><h3>${p.name}</h3><p>${p.tagline}</p>`;
-      c.onclick = () => generateOne(p.id, null);
-      wrap.appendChild(c);
-    });
+    const data = await api("/api/generate-all", { method: "POST" });
+    renderGallery(data.results);
+    renderTrace(null, false);
   } catch (e) {
-    console.error(e);
+    $("gallery").innerHTML = `<div class="empty-state"><p>Generation failed: ${esc(e.message)}<br />Is the backend running?</p></div>`;
+  } finally {
+    setBusy(false);
   }
-
-  $("btnAll").onclick = generateAll;
-  $("btnCustom").onclick = () => {
-    const tags = $("customTags").value.split(/[,，]/).map((t) => t.trim()).filter(Boolean);
-    if (!tags.length) return alert("先输入几个兴趣标签");
-    generateOne(null, tags);
-  };
 }
 
-async function generateOne(personaId, interests) {
-  setLoading(true, "创意总监思考中：品味分析 → 创意决策 → 广告生成…");
+async function generateOne(personaId) {
+  if (generating) return;
+  setBusy(true);
+  // replace that persona's card (if present) with a skeleton
+  const existing = document.querySelector(`.ad-card[data-persona="${personaId}"]`);
+  let placeholder = null;
+  if (existing) {
+    placeholder = document.createElement("div");
+    placeholder.className = "skeleton";
+    placeholder.innerHTML = `<div class="sk-img shimmer"></div><div class="sk-line shimmer"></div><div class="sk-line short shimmer"></div>`;
+    existing.replaceWith(placeholder);
+  } else {
+    skeletonCards(1);
+  }
   try {
     const data = await api("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ personaId, interests }),
+      body: JSON.stringify({ personaId }),
     });
-    showGallery([data], data.ad.product, traceHtml(data.trace));
+    const card = adCard(data, 0);
+    if (placeholder) placeholder.replaceWith(card);
+    else { $("gallery").innerHTML = ""; $("gallery").appendChild(card); }
+    renderTrace(data.trace, true);
   } catch (e) {
-    alert("生成失败：" + e.message);
+    if (placeholder) placeholder.outerHTML = `<div class="empty-state"><p>Generation failed: ${esc(e.message)}</p></div>`;
+    else $("gallery").innerHTML = `<div class="empty-state"><p>Generation failed: ${esc(e.message)}</p></div>`;
   } finally {
-    setLoading(false);
+    setBusy(false);
   }
 }
 
-async function generateAll() {
-  setLoading(true, "三位创意总监同时开工…");
+/* ---------------- init ---------------- */
+
+async function init() {
   try {
-    const data = await api("/api/generate-all", { method: "POST" });
-    const product = data.results[0]?.ad.product ?? "";
-    showGallery(data.results, product, null);
-    $("traceBox").innerHTML = `<span class="dim">批量生成模式：每支广告独立走完 感知→推理→生成→自检 四步。</span>`;
-  } catch (e) {
-    alert("生成失败：" + e.message);
-  } finally {
-    setLoading(false);
+    const h = await api("/api/health");
+    const live = h.qlooMode === "live";
+    $("modeText").textContent = live ? "Qloo LIVE" : "Qloo MOCK · waiting for API key";
+    $("modeBadge").classList.add(live ? "live" : "mock");
+    $("footMode").textContent = `qloo=${h.qlooMode} · image=${h.imageMode}`;
+  } catch {
+    $("modeText").textContent = "Backend not connected";
   }
+
+  try {
+    const { personas, products } = await api("/api/personas");
+    PERSONAS = personas || [];
+    renderPersonaStrip(PERSONAS);
+    const prod = enProduct((products || [])[0] || {});
+    if (prod.name) {
+      $("productChip").innerHTML = `Demo product: <strong>${esc(prod.name)}</strong> · ${esc(prod.blurb)}`;
+    }
+  } catch (e) {
+    $("personaStrip").innerHTML = `<div class="empty-state"><p>Could not load personas: ${esc(e.message)}</p></div>`;
+  }
+
+  $("btnAll").onclick = generateAll;
 }
 
 init();

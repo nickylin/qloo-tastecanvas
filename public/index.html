@@ -1,48 +1,59 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TasteCanvas · 品味广告工坊</title>
+<title>TasteCanvas · Taste-Driven Ad Workshop</title>
+<meta name="description" content="One product. Three tastes. Three completely different ads — generated live by a creative-director agent powered by Qloo's taste graph." />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<header>
-  <h1>🎨 TasteCanvas <span class="sub">品味广告工坊</span></h1>
-  <p class="tagline">同一款产品，三种品味，三支完全不同的广告 —— 由 Qloo 品味图谱 + AI 创意总监现场生成</p>
-  <div id="modeBadge" class="badge">检查服务状态…</div>
+<div class="bg-glow" aria-hidden="true"></div>
+
+<header class="hero">
+  <div class="badge" id="modeBadge"><span class="dot"></span><span id="modeText">Checking service status…</span></div>
+  <h1 class="title">Taste<span>Canvas</span></h1>
+  <p class="tagline">One product. Three tastes. Three completely different ads —<br class="br-desktop" />
+    generated live by a creative-director agent on Qloo's taste graph.</p>
+  <div class="hero-actions">
+    <button id="btnAll" class="btn primary">⚡ Generate all three ads</button>
+    <div class="product-chip" id="productChip" title="Demo product"></div>
+  </div>
 </header>
 
 <main>
-  <section class="panel">
-    <h2>① 选择品味</h2>
-    <div id="personaCards" class="persona-cards"></div>
-    <div class="custom-row">
-      <input id="customTags" type="text" placeholder="或输入自定义兴趣标签，逗号分隔，如：露营, 精酿, 胶片" />
-      <button id="btnCustom" class="btn secondary">生成我的广告</button>
+  <section class="panel glass">
+    <div class="panel-head">
+      <h2>Personas</h2>
+      <p class="hint">Click a persona to regenerate just their ad — or generate all three for the side-by-side demo.</p>
     </div>
-    <button id="btnAll" class="btn primary">⚡ 一键生成三支广告（并排对比）</button>
+    <div id="personaStrip" class="persona-strip"></div>
   </section>
 
-  <section class="panel hidden" id="loadingPanel">
-    <div class="loader"></div>
-    <p id="loadingText">创意总监思考中…</p>
+  <section class="panel glass" id="galleryPanel">
+    <div class="panel-head">
+      <h2>Ad gallery</h2>
+      <p class="hint" id="galleryHint">The same product, seen through three different tastes.</p>
+    </div>
+    <div id="gallery" class="gallery">
+      <div class="empty-state">
+        <div class="empty-emoji">🎨</div>
+        <p>Nothing generated yet.<br />Hit <strong>“Generate all three ads”</strong> to watch the agent work.</p>
+      </div>
+    </div>
   </section>
 
-  <section class="panel hidden" id="galleryPanel">
-    <h2>② 千人千面 · 广告画廊</h2>
-    <p class="hint">同一款 <strong id="productName"></strong>，不同品味看到的不同广告</p>
-    <div id="gallery" class="gallery"></div>
-  </section>
-
-  <section class="panel">
-    <h2>③ 这次生成用了什么</h2>
-    <div id="traceBox" class="trace"><span class="dim">生成一次后，这里会显示 Agent 的决策轨迹</span></div>
+  <section class="panel glass">
+    <div class="panel-head">
+      <h2>Agent decision trace</h2>
+      <p class="hint">Perceive → reason → generate → self-check. Every ad leaves a trail.</p>
+    </div>
+    <div id="traceBox" class="trace"><span class="dim">Generate an ad and the agent's reasoning will appear here.</span></div>
   </section>
 </main>
 
 <footer>
-  <p>TasteCanvas · Qloo Agentic Hackathon 参赛作品脚手架 · <span id="footMode"></span></p>
+  <p>TasteCanvas · Qloo Agentic Hackathon entry · <span id="footMode"></span></p>
 </footer>
 
 <script src="app.js"></script>
