@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TasteCanvas · 品味广告工坊</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header>
+  <h1>🎨 TasteCanvas <span class="sub">品味广告工坊</span></h1>
+  <p class="tagline">同一款产品，三种品味，三支完全不同的广告 —— 由 Qloo 品味图谱 + AI 创意总监现场生成</p>
+  <div id="modeBadge" class="badge">检查服务状态…</div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>① 选择品味</h2>
+    <div id="personaCards" class="persona-cards"></div>
+    <div class="custom-row">
+      <input id="customTags" type="text" placeholder="或输入自定义兴趣标签，逗号分隔，如：露营, 精酿, 胶片" />
+      <button id="btnCustom" class="btn secondary">生成我的广告</button>
+    </div>
+    <button id="btnAll" class="btn primary">⚡ 一键生成三支广告（并排对比）</button>
+  </section>
+
+  <section class="panel hidden" id="loadingPanel">
+    <div class="loader"></div>
+    <p id="loadingText">创意总监思考中…</p>
+  </section>
+
+  <section class="panel hidden" id="galleryPanel">
+    <h2>② 千人千面 · 广告画廊</h2>
+    <p class="hint">同一款 <strong id="productName"></strong>，不同品味看到的不同广告</p>
+    <div id="gallery" class="gallery"></div>
+  </section>
+
+  <section class="panel">
+    <h2>③ 这次生成用了什么</h2>
+    <div id="traceBox" class="trace"><span class="dim">生成一次后，这里会显示 Agent 的决策轨迹</span></div>
+  </section>
+</main>
+
+<footer>
+  <p>TasteCanvas · Qloo Agentic Hackathon 参赛作品脚手架 · <span id="footMode"></span></p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
