@@ -144,7 +144,10 @@ export async function runCreativeDirector(
   const profile = perceive(signal);
   trace.steps.push({ name: "perceive", detail: `profile="${profile.summary}"`, attempt: 1 });
 
-  const insights = await qloo.getBrandAffinities(signal, 6);
+  // Pass the enriched interests (persona + custom) to Qloo, not the raw signal
+  // which may carry an empty interests array when only personaId was given.
+  const enrichedSignal: TasteSignal = { ...signal, interests: profile.interests };
+  const insights = await qloo.getBrandAffinities(enrichedSignal, 6);
   const top = insights.entities[0] ?? { name: "Uniqlo", affinity: 0.7, tags: [] };
   trace.steps.push({
     name: "qloo",

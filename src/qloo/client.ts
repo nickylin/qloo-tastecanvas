@@ -27,24 +27,46 @@ function mapEntity(raw: any): BrandAffinity {
 export class LiveQlooClient implements QlooClient {
   constructor(private apiKey: string, private baseUrl: string) {}
 
-  async getBrandAffinities(signal: TasteSignal, limit = 6): Promise<InsightsResult> {
-    if (!this.apiKey) {
-      throw new Error("QLOO_API_KEY is not set — cannot use live mode.");
-    }
-    // Free-form interests are passed as a tag query hint. The robust production
-    // flow is: /search entity IDs -> signal.interests.entities. Tag-based
-    // signals require valid Qloo tag IDs from /v2/tags; wire that up once live.
-    const params = new URLSearchParams({
-      "filter.type": "urn:entity:brand",
-      take: String(limit),
-    });
-    const url = `${this.baseUrl}/v2/insights?${params.toString()}`;
+  private async get(url: string): Promise<any> {
     const res = await fetch(url, { headers: { "X-Api-Key": this.apiKey } });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       throw new Error(`Qloo API error ${res.status}: ${body.slice(0, 300)}`);
     }
-    const json: any = await res.json();
+    return res.json();
+  }
+
+  /** Resolve free-form interest words to Qloo tag URNs via /v2/tags. */
+  private async resolveTagUrns(interests: string[]): Promise<string[]> {
+    const urns: string[] = [];
+    for (const word of interests.slice(0, 5)) {
+      try {
+        const params = new URLSearchParams({ "filter.query": word, take: "1" });
+        const json = await this.get(`${this.baseUrl}/v2/tags?${params.toString()}`);
+        const tag = json?.results?.tags?.[0];
+        if (tag?.id) urns.push(String(tag.id));
+      } catch {
+        // Skip unresolvable words; insights still works with fewer tags.
+      }
+    }
+    return urns;
+  }
+
+  async getBrandAffinities(signal: TasteSignal, limit = 6): Promise<InsightsResult> {
+    if (!this.apiKey) {
+      throw new Error("QLOO_API_KEY is not set — cannot use live mode.");
+    }
+    // Resolve persona interests (or custom tags) to real Qloo tag URNs so the
+    // insights call carries an actual taste signal instead of an empty query.
+    const tagUrns = await this.resolveTagUrns(signal.interests);
+    const params = new URLSearchParams({
+      "filter.type": "urn:entity:brand",
+      take: String(limit),
+    });
+    // Qloo expects a single comma-separated signal.interests.tags param.
+    if (tagUrns.length) params.set("signal.interests.tags", tagUrns.join(","));
+    const url = `${this.baseUrl}/v2/insights?${params.toString()}`;
+    const json: any = await this.get(url);
     const rawEntities: any[] = json?.results?.entities ?? json?.entities ?? [];
     const entities = rawEntities.slice(0, limit).map(mapEntity);
     return { signal, filterType: "urn:entity:brand", entities, mocked: false };
