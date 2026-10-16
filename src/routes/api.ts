@@ -41,7 +41,8 @@ export function buildApiRouter(config: AppConfig, qloo: QlooClient): Router {
           label: out.angle.product,
           accentColor: out.angle.accentColor,
         },
-        config.imageMode
+        config.imageMode,
+        config.geminiApiKey
       );
 
       res.json({
@@ -85,7 +86,8 @@ export function buildApiRouter(config: AppConfig, qloo: QlooClient): Router {
             label: out.angle.product,
             accentColor: out.angle.accentColor,
           },
-          config.imageMode
+          config.imageMode,
+          config.geminiApiKey
         );
         results.push({
           persona: { id: personaId, name: out.profile.personaName },
