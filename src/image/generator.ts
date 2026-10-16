@@ -44,20 +44,62 @@ function svgPlaceholder(brief: ImageBrief): string {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
-export async function generateAdImage(brief: ImageBrief, mode: "mock" | "live"): Promise<GeneratedImage> {
+export async function generateAdImage(
+  brief: ImageBrief,
+  mode: "mock" | "live",
+  apiKey?: string
+): Promise<GeneratedImage> {
   if (mode === "live") {
-    // TODO(key): implement with @google/genai, mirroring Nic's Python pattern:
-    //   import { GoogleGenAI } from "@google/genai";
-    //   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    //   const resp = await ai.models.generateContent({
-    //     model: "gemini-2.5-flash-image-preview",
-    //     contents: brief.visualPrompt,
-    //     config: { responseModalities: ["IMAGE", "TEXT"] },
-    //   });
-    //   // extract inlineData -> save under public/ads/ -> return { src: "/ads/....png" }
-    throw new Error("IMAGE_MODE=live not wired yet — add GEMINI_API_KEY and implement per TODO above.");
+    return generateLiveImage(brief, apiKey);
   }
   // Mock: small artificial delay so the UI progress state is exercised.
   await new Promise((r) => setTimeout(r, 400));
   return { src: svgPlaceholder(brief), mocked: true, brief };
+}
+
+const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
+
+async function generateLiveImage(brief: ImageBrief, apiKey?: string): Promise<GeneratedImage> {
+  if (!apiKey) {
+    throw new Error("IMAGE_MODE=live requires GEMINI_API_KEY to be set.");
+  }
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent` +
+    `?key=${encodeURIComponent(apiKey)}`;
+
+  const prompt =
+    `Generate a single advertising creative image (portrait 3:4) for this brief. ` +
+    `Photorealistic or high-end illustration style, no text overlays, no watermark. ` +
+    `Brief: ${brief.visualPrompt}`;
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+    }),
+  });
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => "");
+    throw new Error(`Gemini image API ${resp.status}: ${errText.slice(0, 200)}`);
+  }
+  const data = (await resp.json()) as any;
+  const parts: any[] = data?.candidates?.[0]?.content?.parts ?? [];
+  const imgPart = parts.find((p) => p?.inlineData?.data);
+  if (!imgPart) {
+    throw new Error("Gemini returned no image data (safety block or empty response).");
+  }
+  const mime: string = imgPart.inlineData.mimeType || "image/png";
+  const b64: string = imgPart.inlineData.data;
+  const ext = mime.includes("jpeg") || mime.includes("jpg") ? "jpg" : "png";
+
+  // Persist under public/ads so the frontend can <img src="/ads/..."> it.
+  const fs = await import("fs");
+  const path = await import("path");
+  const dir = path.join(__dirname, "..", "..", "public", "ads");
+  fs.mkdirSync(dir, { recursive: true });
+  const fname = `ad-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  fs.writeFileSync(path.join(dir, fname), Buffer.from(b64, "base64"));
+  return { src: `/ads/${fname}`, mocked: false, brief };
 }
