@@ -96,9 +96,12 @@ function generate(
 ): CreativeAngle {
   const interest = profile.interests[0] ?? "design";
   const visualPrompt =
-    `Advertising photograph for "${partial.product}". Creative angle: ${partial.angle}. ` +
-    `Scene: ${moodFor(partial)}. Taste cues from the viewer's world: ${profile.interests.slice(0, 3).join(", ")}. ` +
-    `Product hero, premium commercial photography, no visible text except tiny signage.`;
+    `Award-winning advertising photograph for "${partial.product}", hero product shot. ` +
+    `Creative angle: ${partial.angle}. Scene: ${moodFor(partial)}. ` +
+    `Taste cues from the viewer's world: ${profile.interests.slice(0, 3).join(", ")}. ` +
+    `Editorial commercial photography, medium-format detail, cinematic lighting, rich color grading, ` +
+    `sharp focus on product, art-directed composition, premium brand campaign quality. ` +
+    `No visible text, no watermark, no logo except tiny incidental signage.`;
   return {
     ...partial,
     visualPrompt,
