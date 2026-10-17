@@ -70,6 +70,14 @@ export default {
           interests: Array.isArray(body.interests)
             ? body.interests.filter((t: unknown) => typeof t === "string")
             : [],
+          product:
+            body.product && typeof body.product.name === "string" && body.product.name.trim()
+              ? {
+                  name: body.product.name,
+                  blurb:
+                    typeof body.product.blurb === "string" ? body.product.blurb : undefined,
+                }
+              : undefined,
         };
         if (!signal.personaId && signal.interests.length === 0) {
           return json({ error: "provide personaId or interests[]" }, 400);
@@ -120,12 +128,24 @@ export default {
 
       // POST /api/generate-all
       if (path === "/api/generate-all" && request.method === "POST") {
+        const body = (await request.json().catch(() => ({}))) as any;
+        const productOverride =
+          body.product && typeof body.product.name === "string" && body.product.name.trim()
+            ? {
+                name: body.product.name,
+                blurb: typeof body.product.blurb === "string" ? body.product.blurb : undefined,
+              }
+            : undefined;
         const { client, live } = qlooClient(env);
         const imgLive = imageLive(env);
         const results = [];
         let anyMocked = !live;
         for (const personaId of Object.keys(PERSONAS)) {
-          const out = await runCreativeDirector(client, { personaId, interests: [] });
+          const out = await runCreativeDirector(client, {
+            personaId,
+            interests: [],
+            product: productOverride,
+          });
           if (out.insights.mocked) anyMocked = true;
           const image = imgLive
             ? await generateAdImageDataUri(

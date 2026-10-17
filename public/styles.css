@@ -231,6 +231,19 @@ main { max-width: 1240px; margin: 0 auto; padding: 8px 20px 48px; position: rela
 .trace .ok { color: #8ff0b3; }
 .trace .warn { color: #ffd9a0; }
 
+/* ---------- product picker ---------- */
+.product-picker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 18px; }
+.pp-label { color: var(--dim); font-size: 13.5px; }
+.pp-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.pp-chip { border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); color: var(--text);
+  border-radius: 999px; padding: 7px 14px; font-size: 13.5px; cursor: pointer; transition: all .18s; }
+.pp-chip:hover { border-color: rgba(255,255,255,0.4); }
+.pp-chip.active { background: var(--text); color: #111; border-color: var(--text); font-weight: 600; }
+.pp-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.18); color: var(--text);
+  border-radius: 999px; padding: 7px 14px; font-size: 13.5px; width: 250px; outline: none; }
+.pp-input:focus { border-color: rgba(255,255,255,0.45); }
+.pp-input::placeholder { color: var(--faint); }
+
 footer { text-align: center; color: var(--faint); font-size: 12.5px; padding: 8px 0 30px; position: relative; z-index: 1; }
 
 @media (max-width: 640px) {

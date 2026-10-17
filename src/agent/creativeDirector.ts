@@ -43,9 +43,17 @@ const FALLBACK_ANGLES = [
   { angle: "designed for real life", mood: "clean lifestyle setting, natural textures", accentColor: "#8a9a7b" },
 ];
 
-function pickProduct(): Product {
-  // Demo product is fixed so the side-by-side comparison ("same product, three
-  // tastes, three ads") holds. Catalog rotation is a one-line change.
+function pickProduct(signal?: TasteSignal): Product {
+  // User-supplied product wins; otherwise the default demo product keeps the
+  // side-by-side comparison ("same product, three tastes, three ads") intact.
+  const p = signal?.product;
+  if (p?.name?.trim()) {
+    return {
+      id: "custom",
+      name: p.name.trim().slice(0, 60),
+      blurb: (p.blurb ?? "").trim().slice(0, 140) || "a product worth discovering",
+    };
+  }
   return PRODUCTS[0];
 }
 
@@ -53,9 +61,10 @@ function reason(
   profile: TasteProfile,
   topBrand: { name: string; affinity: number; tags: string[] },
   constraintNote: string | null,
-  attempt: number
+  attempt: number,
+  signal?: TasteSignal
 ): Omit<CreativeAngle, "visualPrompt" | "copyHeadline" | "copySubline"> {
-  const product = pickProduct();
+  const product = pickProduct(signal);
   const library = (profile.personaId && ANGLE_LIBRARY[profile.personaId]) || FALLBACK_ANGLES;
   // On retry, rotate to a different angle (obeys the constraint note).
   const pick = library[(attempt - 1) % library.length];
@@ -158,7 +167,7 @@ export async function runCreativeDirector(
   let angle: CreativeAngle | null = null;
   let constraintNote: string | null = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const partial = reason(profile, top, constraintNote, attempt);
+    const partial = reason(profile, top, constraintNote, attempt, signal);
     const candidate = generate(partial, profile);
     const issues = selfCheck(candidate, profile);
     trace.steps.push({

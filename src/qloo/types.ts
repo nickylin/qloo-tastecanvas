@@ -28,6 +28,8 @@ export interface TasteSignal {
   interests: string[];
   /** Optional persona id, e.g. "jazz-lover" */
   personaId?: string;
+  /** Optional user-supplied product to advertise instead of the default demo product */
+  product?: { name: string; blurb?: string };
 }
 
 export interface BrandAffinity {

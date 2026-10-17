@@ -48,4 +48,14 @@ export const PRODUCTS: Product[] = [
     name: "CloudRunner 小白鞋",
     blurb: "轻得像没穿一样的日常跑鞋",
   },
+  {
+    id: "aurora-perfume",
+    name: "Aurora 香水",
+    blurb: "晨雾中的柑橘与雪松",
+  },
+  {
+    id: "kiln-coffee",
+    name: "Kiln 手冲咖啡豆",
+    blurb: "深烘埃塞俄比亚，黑巧克力尾韵",
+  },
 ];

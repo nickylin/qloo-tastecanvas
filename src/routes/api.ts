@@ -24,10 +24,17 @@ export function buildApiRouter(config: AppConfig, qloo: QlooClient): Router {
   // Generate one personalized ad for a taste signal.
   r.post("/generate", async (req, res) => {
     try {
-      const { personaId, interests } = req.body ?? {};
+      const { personaId, interests, product } = req.body ?? {};
       const signal: TasteSignal = {
         personaId: typeof personaId === "string" ? personaId : undefined,
         interests: Array.isArray(interests) ? interests.filter((t) => typeof t === "string") : [],
+        product:
+          product && typeof product.name === "string" && product.name.trim()
+            ? {
+                name: product.name,
+                blurb: typeof product.blurb === "string" ? product.blurb : undefined,
+              }
+            : undefined,
       };
       if (!signal.personaId && signal.interests.length === 0) {
         res.status(400).json({ error: "provide personaId or interests[]" });
@@ -76,12 +83,24 @@ export function buildApiRouter(config: AppConfig, qloo: QlooClient): Router {
 
   // Convenience: generate for all three preset personas at once (the demo's
   // side-by-side comparison).
-  r.post("/generate-all", async (_req, res) => {
+  r.post("/generate-all", async (req, res) => {
     try {
+      const { product } = req.body ?? {};
+      const productOverride =
+        product && typeof product.name === "string" && product.name.trim()
+          ? {
+              name: product.name,
+              blurb: typeof product.blurb === "string" ? product.blurb : undefined,
+            }
+          : undefined;
       const results = [];
       let anyMocked = false;
       for (const personaId of Object.keys(PERSONAS)) {
-        const out = await runCreativeDirector(qloo, { personaId, interests: [] });
+        const out = await runCreativeDirector(qloo, {
+          personaId,
+          interests: [],
+          product: productOverride,
+        });
         if (out.insights.mocked) anyMocked = true;
         const image = await generateAdImage(
           {
