@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TasteCanvas · Taste-Driven Ad Workshop</title>
+<meta name="description" content="One product. Three tastes. Three completely different ads — generated live by a creative-director agent powered by Qloo's taste graph." />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="bg-glow" aria-hidden="true"></div>
+
+<header class="hero">
+  <div class="badge" id="modeBadge"><span class="dot"></span><span id="modeText">Checking service status…</span></div>
+  <h1 class="title">Taste<span>Canvas</span></h1>
+  <p class="tagline">One product. Three tastes. Three completely different ads —<br class="br-desktop" />
+    generated live by a creative-director agent on Qloo's taste graph.</p>
+  <div class="hero-actions">
+    <button id="btnAll" class="btn primary">⚡ Generate all three ads</button>
+    <div class="product-chip" id="productChip" title="Demo product"></div>
+  </div>
+</header>
+
+<main>
+  <section class="panel glass">
+    <div class="panel-head">
+      <h2>Personas</h2>
+      <p class="hint">Click a persona to regenerate just their ad — or generate all three for the side-by-side demo.</p>
+    </div>
+    <div id="personaStrip" class="persona-strip"></div>
+  </section>
+
+  <section class="panel glass" id="galleryPanel">
+    <div class="panel-head">
+      <h2>Ad gallery</h2>
+      <p class="hint" id="galleryHint">The same product, seen through three different tastes.</p>
+    </div>
+    <div id="gallery" class="gallery">
+      <div class="empty-state">
+        <div class="empty-emoji">🎨</div>
+        <p>Nothing generated yet.<br />Hit <strong>“Generate all three ads”</strong> to watch the agent work.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel glass">
+    <div class="panel-head">
+      <h2>Agent decision trace</h2>
+      <p class="hint">Perceive → reason → generate → self-check. Every ad leaves a trail.</p>
+    </div>
+    <div id="traceBox" class="trace"><span class="dim">Generate an ad and the agent's reasoning will appear here.</span></div>
+  </section>
+</main>
+
+<footer>
+  <p>TasteCanvas · Qloo Agentic Hackathon entry · <span id="footMode"></span></p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -79,8 +79,10 @@ export function buildApiRouter(config: AppConfig, qloo: QlooClient): Router {
   r.post("/generate-all", async (_req, res) => {
     try {
       const results = [];
+      let anyMocked = false;
       for (const personaId of Object.keys(PERSONAS)) {
         const out = await runCreativeDirector(qloo, { personaId, interests: [] });
+        if (out.insights.mocked) anyMocked = true;
         const image = await generateAdImage(
           {
             visualPrompt: out.angle.visualPrompt,
@@ -110,7 +112,7 @@ export function buildApiRouter(config: AppConfig, qloo: QlooClient): Router {
           },
         });
       }
-      res.json({ results, qlooMocked: true });
+      res.json({ results, qlooMocked: anyMocked });
     } catch (err: any) {
       console.error("[/api/generate-all]", err?.message ?? err);
       res.status(500).json({ error: err?.message ?? "generation failed" });

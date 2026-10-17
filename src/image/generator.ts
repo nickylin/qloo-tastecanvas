@@ -65,26 +65,27 @@ export async function generateAdImage(
   return { src: svgPlaceholder(brief), mocked: true, brief };
 }
 
-const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
-
-// MiniMax image-01 (China platform). Synchronous; returns base64 JPEGs.
-// Docs: https://platform.minimax.io/docs/guides/image-generation
-// Verified live 2026-10-17: status_code 0, data.image_base64[0].
-const MINIMAX_IMAGE_URL = "https://api.minimaxi.com/v1/image_generation";
-const MINIMAX_IMAGE_MODEL = "image-01";
-
-async function generateMiniMaxImage(
+/**
+ * Workers-compatible variant: no filesystem, returns the image as a data URI
+ * the frontend can <img> directly. Used by the Cloudflare Worker deployment.
+ */
+export async function generateAdImageDataUri(
   brief: ImageBrief,
   apiKey?: string
 ): Promise<GeneratedImage> {
-  if (!apiKey) {
-    throw new Error("IMAGE_MODE=live with IMAGE_PROVIDER=minimax requires MINIMAX_API_KEY to be set.");
-  }
   const prompt =
     `Generate a single advertising creative image (portrait 3:4) for this brief. ` +
     `Photorealistic or high-end illustration style, no text overlays, no watermark. ` +
     `Brief: ${brief.visualPrompt}`;
+  const b64 = await callMiniMax(prompt, apiKey);
+  return { src: `data:image/jpeg;base64,${b64}`, mocked: false, brief };
+}
 
+/** Shared MiniMax call: returns raw base64 JPEG. Throws on API error. */
+async function callMiniMax(prompt: string, apiKey?: string): Promise<string> {
+  if (!apiKey) {
+    throw new Error("MiniMax image generation requires MINIMAX_API_KEY to be set.");
+  }
   const resp = await fetch(MINIMAX_IMAGE_URL, {
     method: "POST",
     headers: {
@@ -114,6 +115,26 @@ async function generateMiniMaxImage(
   if (!b64) {
     throw new Error("MiniMax returned no image data.");
   }
+  return b64;
+}
+
+const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
+
+// MiniMax image-01 (China platform). Synchronous; returns base64 JPEGs.
+// Docs: https://platform.minimax.io/docs/guides/image-generation
+// Verified live 2026-10-17: status_code 0, data.image_base64[0].
+const MINIMAX_IMAGE_URL = "https://api.minimaxi.com/v1/image_generation";
+const MINIMAX_IMAGE_MODEL = "image-01";
+
+async function generateMiniMaxImage(
+  brief: ImageBrief,
+  apiKey?: string
+): Promise<GeneratedImage> {
+  const prompt =
+    `Generate a single advertising creative image (portrait 3:4) for this brief. ` +
+    `Photorealistic or high-end illustration style, no text overlays, no watermark. ` +
+    `Brief: ${brief.visualPrompt}`;
+  const b64 = await callMiniMax(prompt, apiKey);
 
   // Persist under public/ads so the frontend can <img src="/ads/..."> it.
   const fs = await import("fs");
