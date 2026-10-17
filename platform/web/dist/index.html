@@ -17,11 +17,49 @@
     generated live by a creative-director agent on Qloo's taste graph.</p>
   <div class="hero-actions">
     <button id="btnAll" class="btn primary">⚡ Generate all three ads</button>
-    <div class="product-chip" id="productChip" title="Demo product"></div>
+  </div>
+  <div class="product-picker" id="productPicker">
+    <label class="pp-label">Advertise:</label>
+    <div class="pp-chips" id="productChips"></div>
+    <input class="pp-input" id="productInput" type="text" maxlength="60"
+      placeholder="…or type your own product (e.g. Aurora Perfume)" />
   </div>
 </header>
 
 <main>
+  <section class="panel glass showcase-panel">
+    <div class="panel-head">
+      <h2>See what it does</h2>
+      <p class="hint">The same sneaker, advertised to three different taste worlds — generated live by the agent.</p>
+    </div>
+    <div class="showcase">
+      <figure class="showcase-card">
+        <img src="showcase/jazz-lover.jpg" alt="Jazz Lover ad for CloudRunner sneaker" loading="lazy" />
+        <figcaption>
+          <span class="sc-persona">🎷 Jazz Lover</span>
+          <strong>For nights that spin slow</strong>
+          <span class="sc-meta">angle: late-night vinyl ritual · Qloo top brand: Secrets In Lace</span>
+        </figcaption>
+      </figure>
+      <figure class="showcase-card">
+        <img src="showcase/streetwear-fan.jpg" alt="Streetwear Fan ad for CloudRunner sneaker" loading="lazy" />
+        <figcaption>
+          <span class="sc-persona">🧢 Streetwear Fan</span>
+          <strong>Own the city</strong>
+          <span class="sc-meta">angle: city energy drop · Qloo top brand: Mass Appeal</span>
+        </figcaption>
+      </figure>
+      <figure class="showcase-card">
+        <img src="showcase/minimalist.jpg" alt="Minimalist ad for CloudRunner sneaker" loading="lazy" />
+        <figcaption>
+          <span class="sc-persona">◻️ Minimalist</span>
+          <strong>Less, but better</strong>
+          <span class="sc-meta">angle: quiet functional beauty · Qloo top brand: Museum of Arts and Design</span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
   <section class="panel glass">
     <div class="panel-head">
       <h2>Personas</h2>

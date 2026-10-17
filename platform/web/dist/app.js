@@ -11,7 +11,11 @@ const EN_PERSONAS = {
 
 const EN_PRODUCTS = {
   "cloudrunner-sneaker": { name: "CloudRunner Sneaker", blurb: "Featherlight everyday runner" },
+  "aurora-perfume": { name: "Aurora Perfume", blurb: "Citrus and cedar in morning mist" },
+  "kiln-coffee": { name: "Kiln Pour-Over Beans", blurb: "Dark-roast Ethiopia, dark-chocolate finish" },
 };
+
+let SELECTED_PRODUCT = null; // { name, blurb } or null = backend default
 
 const enPersona = (p) => ({
   ...p,
@@ -181,12 +185,49 @@ function renderTrace(trace, single) {
 
 /* ---------------- actions ---------------- */
 
+function currentProduct() {
+  const custom = $("productInput").value.trim();
+  if (custom) return { name: custom };
+  return SELECTED_PRODUCT;
+}
+
+function renderProductChips(products) {
+  const wrap = $("productChips");
+  wrap.innerHTML = "";
+  (products || []).forEach((p, i) => {
+    const prod = enProduct(p);
+    const chip = document.createElement("button");
+    chip.className = "pp-chip" + (i === 0 ? " active" : "");
+    chip.textContent = prod.name;
+    chip.title = prod.blurb || "";
+    chip.onclick = () => {
+      SELECTED_PRODUCT = { name: prod.name, blurb: prod.blurb };
+      $("productInput").value = "";
+      wrap.querySelectorAll(".pp-chip").forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+    };
+    wrap.appendChild(chip);
+  });
+  SELECTED_PRODUCT = (products || []).length
+    ? (() => { const p = enProduct(products[0]); return { name: p.name, blurb: p.blurb }; })()
+    : null;
+  $("productInput").addEventListener("input", () => {
+    if ($("productInput").value.trim()) {
+      wrap.querySelectorAll(".pp-chip").forEach((c) => c.classList.remove("active"));
+    }
+  });
+}
+
 async function generateAll() {
   if (generating) return;
   setBusy(true);
   skeletonCards(3);
   try {
-    const data = await api("/api/generate-all", { method: "POST" });
+    const data = await api("/api/generate-all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ product: currentProduct() }),
+    });
     renderGallery(data.results);
     renderTrace(null, false);
   } catch (e) {
@@ -214,7 +255,7 @@ async function generateOne(personaId) {
     const data = await api("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ personaId }),
+      body: JSON.stringify({ personaId, product: currentProduct() }),
     });
     const card = adCard(data, 0);
     if (placeholder) placeholder.replaceWith(card);
@@ -245,10 +286,7 @@ async function init() {
     const { personas, products } = await api("/api/personas");
     PERSONAS = personas || [];
     renderPersonaStrip(PERSONAS);
-    const prod = enProduct((products || [])[0] || {});
-    if (prod.name) {
-      $("productChip").innerHTML = `Demo product: <strong>${esc(prod.name)}</strong> · ${esc(prod.blurb)}`;
-    }
+    renderProductChips(products);
   } catch (e) {
     $("personaStrip").innerHTML = `<div class="empty-state"><p>Could not load personas: ${esc(e.message)}</p></div>`;
   }
