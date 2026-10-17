@@ -5,8 +5,12 @@
 //   response_modalities = ["IMAGE", "TEXT"], stream chunks, inline_data -> file
 //
 // Mock mode renders a deterministic SVG placeholder so the whole pipeline runs
-// end-to-end with zero keys. Flip IMAGE_MODE=live + GEMINI_API_KEY to use the
-// real model (JS SDK: @google/genai — same call shape as the Python example).
+// end-to-end with zero keys. Flip IMAGE_MODE=live to use a real model.
+// IMAGE_PROVIDER picks the backend: "minimax" (default, MiniMax image-01 via
+// MINIMAX_API_KEY) or "gemini" (legacy Nano Banana path via GEMINI_API_KEY;
+// free tier is dead as of 2026-10-17, needs billing).
+
+export type ImageProvider = "minimax" | "gemini";
 
 export interface ImageBrief {
   /** Full prompt describing the ad visual, e.g. "moody jazz club, vinyl..." */
@@ -47,10 +51,14 @@ function svgPlaceholder(brief: ImageBrief): string {
 export async function generateAdImage(
   brief: ImageBrief,
   mode: "mock" | "live",
-  apiKey?: string
+  apiKey?: string,
+  opts?: { provider?: ImageProvider }
 ): Promise<GeneratedImage> {
   if (mode === "live") {
-    return generateLiveImage(brief, apiKey);
+    const provider = opts?.provider ?? "minimax";
+    return provider === "gemini"
+      ? generateLiveImage(brief, apiKey)
+      : generateMiniMaxImage(brief, apiKey);
   }
   // Mock: small artificial delay so the UI progress state is exercised.
   await new Promise((r) => setTimeout(r, 400));
@@ -58,6 +66,64 @@ export async function generateAdImage(
 }
 
 const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
+
+// MiniMax image-01 (China platform). Synchronous; returns base64 JPEGs.
+// Docs: https://platform.minimax.io/docs/guides/image-generation
+// Verified live 2026-10-17: status_code 0, data.image_base64[0].
+const MINIMAX_IMAGE_URL = "https://api.minimaxi.com/v1/image_generation";
+const MINIMAX_IMAGE_MODEL = "image-01";
+
+async function generateMiniMaxImage(
+  brief: ImageBrief,
+  apiKey?: string
+): Promise<GeneratedImage> {
+  if (!apiKey) {
+    throw new Error("IMAGE_MODE=live with IMAGE_PROVIDER=minimax requires MINIMAX_API_KEY to be set.");
+  }
+  const prompt =
+    `Generate a single advertising creative image (portrait 3:4) for this brief. ` +
+    `Photorealistic or high-end illustration style, no text overlays, no watermark. ` +
+    `Brief: ${brief.visualPrompt}`;
+
+  const resp = await fetch(MINIMAX_IMAGE_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: MINIMAX_IMAGE_MODEL,
+      prompt: prompt.slice(0, 1500),
+      aspect_ratio: "3:4",
+      response_format: "base64",
+      n: 1,
+    }),
+  });
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => "");
+    throw new Error(`MiniMax image API ${resp.status}: ${errText.slice(0, 200)}`);
+  }
+  const data = (await resp.json()) as any;
+  const baseResp = data?.base_resp ?? {};
+  if (baseResp.status_code !== 0) {
+    throw new Error(
+      `MiniMax image API error ${baseResp.status_code}: ${(baseResp.status_msg ?? "").toString().slice(0, 200)}`
+    );
+  }
+  const b64: string | undefined = data?.data?.image_base64?.[0];
+  if (!b64) {
+    throw new Error("MiniMax returned no image data.");
+  }
+
+  // Persist under public/ads so the frontend can <img src="/ads/..."> it.
+  const fs = await import("fs");
+  const path = await import("path");
+  const dir = path.join(__dirname, "..", "..", "public", "ads");
+  fs.mkdirSync(dir, { recursive: true });
+  const fname = `ad-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  fs.writeFileSync(path.join(dir, fname), Buffer.from(b64, "base64"));
+  return { src: `/ads/${fname}`, mocked: false, brief };
+}
 
 async function generateLiveImage(brief: ImageBrief, apiKey?: string): Promise<GeneratedImage> {
   if (!apiKey) {

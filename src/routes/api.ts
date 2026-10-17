@@ -42,7 +42,8 @@ export function buildApiRouter(config: AppConfig, qloo: QlooClient): Router {
           accentColor: out.angle.accentColor,
         },
         config.imageMode,
-        config.geminiApiKey
+        config.imageProvider === "gemini" ? config.geminiApiKey : config.minimaxApiKey,
+        { provider: config.imageProvider }
       );
 
       res.json({
@@ -87,7 +88,8 @@ export function buildApiRouter(config: AppConfig, qloo: QlooClient): Router {
             accentColor: out.angle.accentColor,
           },
           config.imageMode,
-          config.geminiApiKey
+          config.imageProvider === "gemini" ? config.geminiApiKey : config.minimaxApiKey,
+          { provider: config.imageProvider }
         );
         results.push({
           persona: { id: personaId, name: out.profile.personaName },
