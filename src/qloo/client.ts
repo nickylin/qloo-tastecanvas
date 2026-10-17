@@ -11,6 +11,31 @@
 
 import { BrandAffinity, InsightsResult, QlooClient, TasteSignal } from "./types";
 
+/**
+ * Pre-resolved tag URNs for the demo personas' fixed interest vocabularies
+ * (resolved once via /v2/tags on 2026-10-17). This keeps /generate-all to
+ * 3 API calls (one /v2/insights per persona) instead of ~18, staying well
+ * under the hackathon key's rate limit. Custom free-text interests still
+ * resolve live via /v2/tags and populate the runtime cache above.
+ */
+const PRESET_TAG_URNS: Array<[string, string]> = [
+  ["jazz", "urn:tag:genre:music:jazz"],
+  ["vinyl", "urn:tag:category:place:vinyl_sign_shop"],
+  ["espresso", "urn:tag:menu_highlight:qloo:espresso"],
+  ["live-music", "urn:tag:good_for:qloo:live_music"],
+  ["photography", "urn:tag:genre:media:photography"],
+  ["streetwear", "urn:tag:ambience:qloo:streetwear_culture_influence"],
+  ["sneakers", "urn:tag:genre:brand:fashion:footwear:sneakers"],
+  ["hip-hop", "urn:tag:genre:media:hip_hop"],
+  ["skate", "urn:tag:genre:music:skate"],
+  ["urban", "urn:tag:setting:qloo:urban"],
+  ["minimalism", "urn:tag:genre:music:minimalism"],
+  ["japandi", "urn:tag:decor:qloo:japandi"],
+  ["functional", "urn:tag:decor:qloo:functional"],
+  ["design", "urn:tag:genre:media:design"],
+  ["tea", "urn:tag:genre:media:tea"],
+];
+
 // Best-effort mapping from the live wire format to our internal BrandAffinity.
 // Re-validate field names against the live API once the key arrives; the mock
 // already returns this internal shape, so only this mapper may need tweaks.
@@ -27,24 +52,41 @@ function mapEntity(raw: any): BrandAffinity {
 export class LiveQlooClient implements QlooClient {
   constructor(private apiKey: string, private baseUrl: string) {}
 
-  private async get(url: string): Promise<any> {
-    const res = await fetch(url, { headers: { "X-Api-Key": this.apiKey } });
-    if (!res.ok) {
+  /** Tag URN cache: word -> URN. Interest vocabularies are small and stable. */
+  private tagCache = new Map<string, string>(PRESET_TAG_URNS);
+
+  private async get(url: string, retries = 3): Promise<any> {
+    let lastErr: any = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const res = await fetch(url, { headers: { "X-Api-Key": this.apiKey } });
+      if (res.ok) return res.json();
       const body = await res.text().catch(() => "");
-      throw new Error(`Qloo API error ${res.status}: ${body.slice(0, 300)}`);
+      lastErr = new Error(`Qloo API error ${res.status}: ${body.slice(0, 300)}`);
+      // Retry on 429 with exponential backoff; fail fast on everything else.
+      if (res.status !== 429 || attempt === retries) break;
+      await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt));
     }
-    return res.json();
+    throw lastErr;
   }
 
   /** Resolve free-form interest words to Qloo tag URNs via /v2/tags. */
   private async resolveTagUrns(interests: string[]): Promise<string[]> {
     const urns: string[] = [];
     for (const word of interests.slice(0, 5)) {
+      const cached = this.tagCache.get(word);
+      if (cached) {
+        urns.push(cached);
+        continue;
+      }
       try {
         const params = new URLSearchParams({ "filter.query": word, take: "1" });
         const json = await this.get(`${this.baseUrl}/v2/tags?${params.toString()}`);
         const tag = json?.results?.tags?.[0];
-        if (tag?.id) urns.push(String(tag.id));
+        if (tag?.id) {
+          const urn = String(tag.id);
+          this.tagCache.set(word, urn);
+          urns.push(urn);
+        }
       } catch {
         // Skip unresolvable words; insights still works with fewer tags.
       }
